@@ -24,10 +24,6 @@ function lightBox_init(props?: LightBoxProps) {
   });
 }
 
-window.addEventListener("load", () => {
-  lightBox_init();
-});
-
 function getClassFromSelector(selector: string) {
   return selector.replace(/\./g, " ").trim();
 }
@@ -56,7 +52,7 @@ function setUpContainer() {
     `;
   document.body.appendChild(container);
 
-  loadCss("/wp-content/themes/canassure/css/lightBox.css");
+  addInlineCss();
 
   setUp_container_event_listeners(container);
 }
@@ -78,7 +74,7 @@ function toggleLightBox() {
   container.classList.toggle("hidden");
 }
 
-function createSlider(slides: NodeListOf<Element>) {
+function createSlider(slides: NodeListOf<Element> | Element[]) {
   const _toClass = getClassFromSelector;
   const slider = document.createElement("div");
   slider.classList.add(_toClass(LightBoxSelectors.slides));
@@ -101,21 +97,25 @@ function setUpLightBox(lightBox: Element) {
 
   function loadLightBox() {
     //clone all direct children of lightbox
-    const slides_selctor = lightBox.getAttribute("data-slides");
-    const slides = lightBox.querySelectorAll(
-      slides_selctor || _toClass(LightBoxSelectors.slide)
-    );
+    const slides_selector = lightBox.getAttribute("data-slides");
+
+    const slides = slides_selector
+      ? lightBox.querySelectorAll(
+          slides_selector || _toClass(LightBoxSelectors.slide)
+        )
+      : Array.from(lightBox.children);
 
     const slider = createSlider(slides);
 
     const container_slider = getLightBoxContainerSlider();
 
     const container = getLightBoxContainer();
-    //replace the lightbox with the slider
+
     container.replaceChild(slider, container_slider);
+
     toggleLightBox();
   }
-  // add event listerner to element to open lightbox
+  // add event listener to element to open lightbox
   lightBox.addEventListener("click", loadLightBox);
   lightBox.addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -145,6 +145,94 @@ function loadCss(path: string) {
   document.head.appendChild(link);
 }
 
+function addInlineCss() {
+  const style = document.createElement("style");
+  const head = document.head || document.getElementsByTagName("head")[0];
+  head.appendChild(style);
+  style.innerHTML = `
+    .lightbox-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 999900000000000;
+        animation: fade-in 0.5s;
+      }
+      .lightbox-container > button {
+        background: none;
+        border: none;
+      }
+      .lightbox-container .lightbox-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 3em;
+        cursor: pointer;
+      }
+      .lightbox-container .lightbox-close, .lightbox-container lightbox-arrow {
+        color: #fff;
+        font-size: 3em;
+      }
+      .lightbox-container .lightbox-arrow {
+        position: absolute;
+        top: 50%;
+        margin-top: -25px;
+        cursor: pointer;
+        font-size: 3em;
+        color: white;
+        display: flex;
+        justify-content: center;
+      }
+      .lightbox-container .lightbox-prev {
+        left: 10px;
+      }
+      .lightbox-container .lightbox-next {
+        right: 10px;
+      }
+      .lightbox-container .lightbox-slides {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        overflow: auto;
+        max-width: 80vw;
+        max-height: 80vh;
+      }
+      .lightbox-container .lightbox-slides .lightbox-slide-wrapper {
+        justify-content: center;
+        display: flex;
+        max-height: 80vh;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        transition: all 0.5s;
+        opacity: 0;
+        z-index: -1;
+      }
+      .lightbox-container .lightbox-slides .lightbox-slide-wrapper img {
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+        max-height: 100%;
+      }
+      .lightbox-container .lightbox-slides .lightbox-slide-wrapper.active {
+        opacity: 1;
+        z-index: 1;
+      }
+    `;
+}
+
+function hide_all(elements: Array<HTMLElement>) {
+  elements.forEach((element) => {
+    element.classList.add("hidden");
+  });
+}
+function show_element(element: HTMLElement) {
+  element.classList.remove("hidden");
+}
+
 function slide(dir: 1 | -1) {
   const slides = getSlides();
 
@@ -168,9 +256,10 @@ function slide(dir: 1 | -1) {
 }
 
 function setUp_container_event_listeners(container: HTMLDivElement) {
-  const next_button = container.querySelector(LightBoxSelectors.next);
-  const previous_button = container.querySelector(LightBoxSelectors.prev);
-  const close_button = container.querySelector(LightBoxSelectors.close);
+  const next_button = getLightBoxElement<HTMLButtonElement>("next");
+  const previous_button = getLightBoxElement<HTMLButtonElement>("prev");
+  const close_button = getLightBoxElement<HTMLButtonElement>("close");
+
   close_button.addEventListener("click", () => {
     toggleLightBox();
   });
@@ -216,6 +305,7 @@ function openLightBox() {
   slide(1);
   document.dispatchEvent(new Event("lightbox_opened"));
 }
+
 function check_arrows() {
   //hide arrows if there is only one slide
   const slides = getSlides();
@@ -300,3 +390,7 @@ function restore_focus() {
     }
   });
 }
+
+window.addEventListener("load", () => {
+  lightBox_init();
+});
